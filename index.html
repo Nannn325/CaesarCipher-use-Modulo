@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caesar Cipher dengan Modulo Arithmetic - Python</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header Utama -->
+        <header class="app-header">
+            <div class="header-badge">Kriptografi Klasik</div>
+            <h1>Caesar Cipher Modulo</h1>
+            <p class="header-subtitle">
+                Aplikasi Enkripsi & Dekripsi Teks Menggunakan Arithmetic Modulo 26
+            </p>
+            <div class="formula-banner">
+                <div class="formula-item">
+                    <span class="formula-label">Rumus Enkripsi:</span>
+                    <code class="formula-code">C = (P + K) mod 26</code>
+                </div>
+                <div class="formula-divider">|</div>
+                <div class="formula-item">
+                    <span class="formula-label">Rumus Dekripsi:</span>
+                    <code class="formula-code">P = (C - K) mod 26</code>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="main-content">
+            <!-- Form Input Card -->
+            <section class="card form-card">
+                <form action="/" method="POST" id="cipherForm">
+                    <!-- Selector Mode -->
+                    <div class="form-group">
+                        <label class="form-label">Pilih Mode Operasi</label>
+                        <div class="mode-selector">
+                            <label class="mode-option {{ 'active' if mode == 'enkripsi' else '' }}">
+                                <input type="radio" name="mode" value="enkripsi" {{ 'checked' if mode == 'enkripsi' else '' }} onchange="updateModeUI('enkripsi')">
+                                <span class="mode-title">Enkripsi</span>
+                                <span class="mode-desc">Ubah Teks Biasa (Plaintext) ke Teks Sandi (Ciphertext)</span>
+                            </label>
+                            <label class="mode-option {{ 'active' if mode == 'dekripsi' else '' }}">
+                                <input type="radio" name="mode" value="dekripsi" {{ 'checked' if mode == 'dekripsi' else '' }} onchange="updateModeUI('dekripsi')">
+                                <span class="mode-title">Dekripsi</span>
+                                <span class="mode-desc">Kembalikan Teks Sandi (Ciphertext) ke Teks Biasa (Plaintext)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Input Teks -->
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label for="teks_input" class="form-label" id="textInputLabel">
+                                {{ 'Teks Asal (Plaintext)' if mode == 'enkripsi' else 'Teks Sandi (Ciphertext)' }}
+                            </label>
+                            <span class="text-counter" id="charCounter">0 Karakter</span>
+                        </div>
+                        <textarea 
+                            id="teks_input" 
+                            name="teks_input" 
+                            rows="4" 
+                            class="form-control" 
+                            placeholder="Masukkan teks di sini..." 
+                            required>{{ teks_input }}</textarea>
+                    </div>
+
+                    <!-- Input Shift (Kunci K) & Modulo Slider -->
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label for="shift_input" class="form-label">
+                                Nilai Pergeseran / Kunci (K)
+                            </label>
+                            <span class="badge badge-info" id="effectiveShiftBadge">
+                                Effective Shift: {{ shift_input % 26 }} (mod 26)
+                            </span>
+                        </div>
+                        <div class="shift-control-row">
+                            <input 
+                                type="number" 
+                                id="shift_input" 
+                                name="shift_input" 
+                                class="form-control shift-number-input" 
+                                value="{{ shift_input }}" 
+                                required 
+                                oninput="syncShiftSlider(this.value)">
+                            <div class="slider-wrapper">
+                                <input 
+                                    type="range" 
+                                    id="shift_slider" 
+                                    min="0" 
+                                    max="50" 
+                                    value="{{ shift_input }}" 
+                                    class="shift-range-slider" 
+                                    oninput="syncShiftInput(this.value)">
+                                <div class="slider-ticks">
+                                    <span>0</span>
+                                    <span>13</span>
+                                    <span>26</span>
+                                    <span>39</span>
+                                    <span>50</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tombol Aksi -->
+                    <div class="btn-row">
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            Proses {{ 'Enkripsi' if mode == 'enkripsi' else 'Dekripsi' }}
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                            Reset
+                        </button>
+                    </div>
+                </form>
+
+                {% if error %}
+                <div class="alert alert-error">
+                    <div class="alert-title">Peringatan Validasi</div>
+                    <div class="alert-message">{{ error }}</div>
+                </div>
+                {% endif %}
+            </section>
+
+            <!-- Card Hasil Output (jika ada data) -->
+            {% if hasil_data %}
+            <section class="card result-card">
+                <div class="card-header">
+                    <h2>Hasil Perhitungan Modulo</h2>
+                    <span class="badge badge-success">Mode: {{ hasil_data.mode | capitalize }}</span>
+                </div>
+
+                <!-- Ringkasan Stat -->
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">Mode Operasi</div>
+                        <div class="stat-value text-accent">{{ hasil_data.mode | capitalize }}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Kunci Shift (K)</div>
+                        <div class="stat-value">{{ hasil_data.shift_original }}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Shift Modulo 26</div>
+                        <div class="stat-value text-highlight">{{ hasil_data.shift_effective }}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Jumlah Huruf</div>
+                        <div class="stat-value">{{ hasil_data.jumlah_huruf }} / {{ hasil_data.jumlah_karakter }}</div>
+                    </div>
+                </div>
+
+                <!-- Teks Hasil Output -->
+                <div class="output-box-container">
+                    <div class="label-row">
+                        <label class="form-label">
+                            {{ 'Teks Hasil Enkripsi (Ciphertext)' if hasil_data.mode == 'enkripsi' else 'Teks Hasil Dekripsi (Plaintext)' }}
+                        </label>
+                        <button type="button" class="btn-copy" onclick="copyResultText()">
+                            Salin Hasil
+                        </button>
+                    </div>
+                    <div class="output-result-box" id="resultOutputBox">
+                        {{ hasil_data.teks_hasil }}
+                    </div>
+                </div>
+
+                <!-- Tabel Detail Perhitungan Modulo Per Karakter -->
+                <div class="detail-section">
+                    <h3>Langkah-Langkah Perhitungan Modulo Per Karakter</h3>
+                    <p class="section-desc">
+                        Tabel berikut menunjukkan bagaimana setiap karakter alfabet dipetakan ke angka indeks (0-25), 
+                        dihitung dengan rumus modulo, lalu dikembalikan ke bentuk karakter.
+                    </p>
+
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>Karakter Asal</th>
+                                    <th>Tipe</th>
+                                    <th>Nilai Asal (P)</th>
+                                    <th>Rumus Modulo</th>
+                                    <th>Perhitungan Modulo</th>
+                                    <th>Nilai Hasil (C)</th>
+                                    <th>Karakter Hasil</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in hasil_data.detail %}
+                                <tr class="{{ 'row-symbol' if not item.is_alpha else '' }}">
+                                    <td class="text-center">{{ item.no }}</td>
+                                    <td class="text-center font-mono bold-text">{{ item.char_asal if item.char_asal != ' ' else '(spasi)' }}</td>
+                                    <td class="text-center"><span class="tag">{{ item.case_type }}</span></td>
+                                    <td class="text-center font-mono">{{ item.val_asal }}</td>
+                                    <td class="font-mono text-center"><code>{{ item.rumus }}</code></td>
+                                    <td class="font-mono text-center"><code>{{ item.proses }}</code></td>
+                                    <td class="text-center font-mono bold-text text-highlight">{{ item.val_hasil }}</td>
+                                    <td class="text-center font-mono bold-text text-accent-bg">{{ item.char_hasil if item.char_hasil != ' ' else '(spasi)' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Tabel Referensi Indeks Alfabet -->
+            <section class="card reference-card">
+                <div class="card-header">
+                    <h2>Tabel Referensi Modulo Alfabet (A=0 ... Z=25)</h2>
+                </div>
+                <p class="section-desc">
+                    Setiap huruf alfabet dipetakan secara matematis ke dalam rentang integer 0 hingga 25 untuk memungkinkan operasi aritmatika modulo.
+                </p>
+                <div class="alphabet-grid">
+                    {% for item in tabel_referensi %}
+                    <div class="alphabet-item">
+                        <span class="alphabet-char">{{ item.huruf }}</span>
+                        <span class="alphabet-val">{{ item.angka }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- Penjelasan Konsep Modulo -->
+            <section class="card explanation-card">
+                <div class="card-header">
+                    <h2>Penjelasan Modulo Dalam Caesar Cipher</h2>
+                </div>
+                <div class="explanation-content">
+                    <div class="explanation-block">
+                        <h4>1. Mengapa Menggunakan Modulo 26?</h4>
+                        <p>
+                            Alfabet bahasa Inggris memiliki 26 huruf (A sampai Z). Ketika pergeseran posisi huruf melebihi huruf Z, 
+                            operator modulo <code>mod 26</code> berfungsi sebagai siklus siklik yang memutar kembali pergeseran ke awal alfabet (A).
+                        </p>
+                    </div>
+                    <div class="explanation-block">
+                        <h4>2. Contoh Kasus Enkripsi (Z + 3):</h4>
+                        <p>
+                            Huruf <strong>'Z'</strong> memiliki indeks <strong>25</strong>. Jika digeser sebesar <strong>3</strong>:<br>
+                            <code>(25 + 3) mod 26 = 28 mod 26 = 2</code><br>
+                            Nilai <strong>2</strong> dipetakan kembali ke huruf <strong>'C'</strong>.
+                        </p>
+                    </div>
+                    <div class="explanation-block">
+                        <h4>3. Contoh Kasus Dekripsi Nilai Negatif:</h4>
+                        <p>
+                            Jika dekripsi menghasilkan angka negatif, sifat aritmatika modulo Python secara otomatis mengatasinya.<br>
+                            Contoh: <code>(0 - 3) mod 26 = -3 mod 26 = 23</code> (Huruf <strong>'X'</strong>).
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Program Caesar Cipher Modulo &copy; 2026 - Dikembangkan dengan Python &amp; Flask</p>
+        </footer>
+    </div>
+
+    <!-- Client-side Scripts -->
+    <script>
+        function updateModeUI(mode) {
+            const label = document.getElementById('textInputLabel');
+            const btn = document.getElementById('submitBtn');
+            
+            document.querySelectorAll('.mode-option').forEach(el => el.classList.remove('active'));
+            if (mode === 'enkripsi') {
+                label.textContent = 'Teks Asal (Plaintext)';
+                btn.textContent = 'Proses Enkripsi';
+                document.querySelectorAll('.mode-option')[0].classList.add('active');
+            } else {
+                label.textContent = 'Teks Sandi (Ciphertext)';
+                btn.textContent = 'Proses Dekripsi';
+                document.querySelectorAll('.mode-option')[1].classList.add('active');
+            }
+        }
+
+        function syncShiftSlider(val) {
+            const num = parseInt(val) || 0;
+            document.getElementById('shift_slider').value = num;
+            updateEffectiveBadge(num);
+        }
+
+        function syncShiftInput(val) {
+            const num = parseInt(val) || 0;
+            document.getElementById('shift_input').value = num;
+            updateEffectiveBadge(num);
+        }
+
+        function updateEffectiveBadge(val) {
+            const eff = ((val % 26) + 26) % 26;
+            document.getElementById('effectiveShiftBadge').textContent = 'Effective Shift: ' + eff + ' (mod 26)';
+        }
+
+        function resetForm() {
+            document.getElementById('teks_input').value = '';
+            document.getElementById('shift_input').value = 3;
+            document.getElementById('shift_slider').value = 3;
+            updateEffectiveBadge(3);
+            updateCharCounter();
+        }
+
+        function updateCharCounter() {
+            const len = document.getElementById('teks_input').value.length;
+            document.getElementById('charCounter').textContent = len + ' Karakter';
+        }
+
+        document.getElementById('teks_input').addEventListener('input', updateCharCounter);
+
+        function copyResultText() {
+            const resultBox = document.getElementById('resultOutputBox');
+            if (!resultBox) return;
+            const textToCopy = resultBox.textContent.trim();
+            
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const btn = document.querySelector('.btn-copy');
+                const oldText = btn.textContent;
+                btn.textContent = 'Tersalin!';
+                btn.style.backgroundColor = '#10b981';
+                btn.style.color = '#ffffff';
+                setTimeout(() => {
+                    btn.textContent = oldText;
+                    btn.style.backgroundColor = '';
+                    btn.style.color = '';
+                }, 2000);
+            }).catch(err => {
+                console.error('Gagal menyalin teks:', err);
+            });
+        }
+
+        // Initialize character counter on load
+        window.addEventListener('DOMContentLoaded', () => {
+            updateCharCounter();
+            const initialShift = parseInt(document.getElementById('shift_input').value) || 0;
+            updateEffectiveBadge(initialShift);
+        });
+    </script>
+</body>
+</html>
